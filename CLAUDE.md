@@ -48,14 +48,49 @@ src/core/      순수 규칙 (UI·네트워크 무관, 테스트 1급 대상)
   rules.ts       RuleConfig 단일 진실원본 (말 9개 · 플라잉 3 · 반복 3회 · 50수)
   gameState.ts   legalMoves · applyMoveInPlace/undoMove · applyMove · 종료 판정
   zobrist.ts     국면 해시 (반복 무승부 + 엔진 전치표 공용)
+  view.ts        boardView(하이라이트) · resolveClick(클릭 의미) · turnHint/phaseLabel(문구)
+  rng.ts         mulberry32 — zobrist 키와 AI 무작위성 공용
   testkit.ts     테스트 전용 국면 빌더(24글자 보드 문자열)
 src/engine/    AI (UI 무관)
+  evaluate.ts    페이즈별 평가함수 / search.ts 알파베타+반복심화+전치표
+  ai.ts          chooseMove(난이도) · bestMove(힌트) / ai.worker.ts · aiClient.ts 워커 창구
+  trayEntry.ts   트레이 IIFE 번들 진입점
 src/store/     Zustand 스토어 + 훅 — 엔진과 UI 사이의 유일한 상태 접착제
 src/ui/        React 컴포넌트 (표현 전담, 상태는 스토어에서)
 src/lib/       Supabase 클라이언트 + 채팅·피드백 API
+supabase/      멀티플레이 스키마·RLS·RPC (nmm_ 접두)
+desktop/       Electron 트레이 앱 (자립형 — 루트 웹 빌드에 의존하지 않음)
 ```
 
 `core` 와 `engine` 에는 React/DOM import 가 없고 `node` 환경 vitest 로 단위 테스트한다(`src/**/*.test.ts`).
+
+## 멀티플레이 (Supabase, 서버 권위)
+
+정적 프런트엔드는 게임 권위를 갖지 않는다. 모든 변경은 `nmm_*` `SECURITY DEFINER` RPC 를 거치고,
+클라이언트 직접 쓰기는 revoke + RLS 로 막혀 있다. `supabase/schema.sql` 이 백엔드의 진실원본이다.
+
+- **⚠️ 이 프로젝트는 요트다이스와 Supabase 프로젝트를 공유한다.** `supabase/schema.sql` 에
+  `revoke ... on all functions in schema public` 같은 **전역 회수를 절대 넣지 말 것** — 요트다이스 RPC
+  권한이 통째로 날아간다. 새 함수에 개별 grant 만 한다. 기존 `rooms`/`room_players`/`leaderboard`/`feedback`
+  과 `room_status` enum 도 건드리지 않는다(그래서 상태값은 enum 대신 text + CHECK).
+- 좌석은 바꾸지 않고 `black_seat`(흑을 맡은 좌석) + `turn`(색) 조합으로 차례를 판정한다.
+- `multiplayerStore.ts` 는 RPC 래퍼 + Realtime 구독만 하고, 보드 클릭은 솔로와 같은
+  `core/view.resolveClick` 로 해석해 알맞은 RPC 를 고른다.
+- 채팅은 테이블 없이 Realtime **broadcast** 만 쓴다(채널 `nmm:<roomId>`, 이벤트 `chat`) — 웹과 트레이가
+  같은 형식을 공유한다.
+- **규칙 일치 검증**: `node scripts/mp-e2e.mjs` — 독립 익명 세션 2개로 한 판을 끝까지 두며 매 수마다
+  서버 보드/차례/손패를 로컬과 대조하고 승패 사유까지 비교한다. `src/core` 나 plpgsql 규칙을 고쳤으면 돌릴 것.
+
+## 트레이 앱 (desktop/)
+
+`desktop/renderer.js` 는 규칙·AI 를 재구현하지 않고 `vendor/nmm-engine.js`(= `src/core`+`src/engine` 번들)를
+`window.NMM` 으로 불러 쓴다. preload 가 노출하는 창 제어 API 는 `window.tray` — 이름이 겹치면 렌더러가
+`Identifier 'tray' has already been declared` 로 죽으니 주의. 자세한 내용은 `desktop/README.md`.
+
+```bash
+cd desktop && NMM_SMOKE=1 NMM_SMOKE_OUT=smoke.json npx electron .   # 창을 띄워 DOM 으로 자동 점검
+```
+
 
 ## 표준 룰 (v1 고정)
 
