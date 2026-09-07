@@ -5,13 +5,14 @@ import type { GameResult, Player } from '../core/gameState';
 import { useAppStore } from '../store/appStore';
 import { useGameStore } from '../store/gameStore';
 
-const WIN_REASON: Record<'pieces' | 'blocked' | 'resign', string> = {
+export const WIN_REASON: Record<'pieces' | 'blocked' | 'resign' | 'timeout', string> = {
   pieces: '말이 2개로 줄었습니다',
   blocked: '움직일 수 있는 말이 없습니다',
   resign: '기권했습니다',
+  timeout: '시간 안에 두지 않았습니다',
 };
 
-const DRAW_REASON: Record<'repetition' | 'stale', string> = {
+export const DRAW_REASON: Record<'repetition' | 'stale', string> = {
   repetition: '같은 국면이 세 번 반복됐습니다',
   stale: '오랫동안 말을 하나도 떼지 못했습니다',
 };

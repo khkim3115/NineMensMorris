@@ -19,7 +19,7 @@ export type Move =
   | { k: 'remove'; at: number };
 
 export type GameResult =
-  | { kind: 'win'; winner: Player; reason: 'pieces' | 'blocked' | 'resign' }
+  | { kind: 'win'; winner: Player; reason: 'pieces' | 'blocked' | 'resign' | 'timeout' }
   | { kind: 'draw'; reason: 'repetition' | 'stale' };
 
 export interface GameState {
