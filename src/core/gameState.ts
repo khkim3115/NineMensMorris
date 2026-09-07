@@ -394,4 +394,29 @@ export function stateFromSnapshot(snap: Snapshot, rules: RuleConfig = DEFAULT_RU
   return s;
 }
 
+/**
+ * Worker 로 넘기기 위한 완전 직렬화형. 스냅샷과 달리 반복 이력까지 들고 가서
+ * AI 가 "무승부로 몰리는 수"를 알아볼 수 있게 한다.
+ */
+export interface StateTransfer extends Snapshot {
+  history: number[];
+  sinceCapture: number;
+}
+
+export function toTransfer(s: GameState): StateTransfer {
+  return { ...toSnapshot(s), history: s.history.slice(), sinceCapture: s.sinceCapture };
+}
+
+export function fromTransfer(t: StateTransfer, rules: RuleConfig = DEFAULT_RULES): GameState {
+  const s = stateFromSnapshot(t, rules);
+  s.sinceCapture = t.sinceCapture;
+  const hist = t.history.length > 0 ? t.history.slice() : [s.hash];
+  // 마지막 항목은 현재 국면이어야 한다. 어긋나면(직렬화 불일치) 현재 해시로 보정.
+  if (hist[hist.length - 1] !== s.hash) hist.push(s.hash);
+  s.history = hist;
+  s.reps = new Map();
+  for (const h of hist) s.reps.set(h, (s.reps.get(h) ?? 0) + 1);
+  return s;
+}
+
 export { isAdjacent };
