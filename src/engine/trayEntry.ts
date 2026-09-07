@@ -41,6 +41,8 @@ export type {
   Player,
   Snapshot,
 } from '../core/gameState';
+export { SIDE_LABEL, boardView, phaseLabel, resolveClick, turnHint } from '../core/view';
+export type { BoardView, ClickResult } from '../core/view';
 export {
   DIFFICULTIES,
   DIFFICULTY_DESC,

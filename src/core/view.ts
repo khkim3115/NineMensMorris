@@ -4,6 +4,7 @@
 
 import { POINT_COUNT } from './board';
 import {
+  canFly,
   isInMill,
   legalMoves,
   other,
@@ -76,4 +77,33 @@ export function resolveClick(
   if (selected === null) return null;
   const ok = legalMoves(s).some((m) => m.k === 'move' && m.from === selected && m.to === point);
   return ok ? { kind: 'move', move: { k: 'move', from: selected, to: point } } : null;
+}
+
+/* ── 상태 문구(웹 배너와 트레이 팝업이 같은 말을 쓰도록 여기서 만든다) ────── */
+
+export const SIDE_LABEL: Record<Player, string> = { 1: '흑', 2: '백' };
+
+/** 지금 둘 사람이 해야 할 일. me 가 null 이면 관전 시점의 서술. */
+export function turnHint(s: GameState, me: Player | null): string {
+  if (s.phase === 'over') return '게임이 끝났습니다.';
+  const mine = me !== null && s.turn === me;
+  const who = mine ? '' : `${SIDE_LABEL[s.turn]} 차례 — `;
+  if (s.mustRemove) {
+    return mine ? '밀 완성! 상대 말을 하나 떼어내세요.' : `${who}상대 말을 떼는 중`;
+  }
+  if (s.hand[s.turn - 1] > 0) {
+    return mine ? '빈 지점에 말을 놓으세요.' : `${who}말을 놓는 중`;
+  }
+  if (canFly(s, s.turn)) {
+    return mine ? '말이 3개 — 아무 빈 지점으로 날아갈 수 있어요.' : `${who}날아서 이동 중`;
+  }
+  return mine ? '옮길 말을 고른 뒤 이어진 빈 지점을 누르세요.' : `${who}말을 옮기는 중`;
+}
+
+/** 페이즈 이름(배치/이동/플라잉). */
+export function phaseLabel(s: GameState): string {
+  if (s.phase === 'over') return '종료';
+  if (s.hand[0] > 0 || s.hand[1] > 0) return '배치';
+  if (canFly(s, 1) || canFly(s, 2)) return '플라잉';
+  return '이동';
 }

@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src https://wrdeqbqwxnmjsbwwnatx.supabase.co wss://wrdeqbqwxnmjsbwwnatx.supabase.co; img-src 'self' data:" />
+    <title>나인 멘스 모리스</title>
+    <style>
+      /* 트레이 위에 뜨는 작은 패널. 눈에 안 띄게 저채도·무채색 위주. */
+      :root {
+        --bg: #07090f;
+        --panel: #11141c;
+        --line: #232a36;
+        --text: #d6dbe4;
+        --muted: #78808f;
+        --accent: #5b7fb8;
+        --hint: #b08a3c;
+        --danger: #b8555a;
+        --ok: #4d8f5a;
+        --board: #10151e;
+        --board-line: #3b4757;
+        --node: #46525f;
+        --p1: #171d26;
+        --p1-edge: #8d9aae;
+        --p2: #e3e7ec;
+        --p2-edge: #9aa4b2;
+      }
+      body.light {
+        --bg: #f4f4f5;
+        --panel: #ffffff;
+        --line: #dcdfe4;
+        --text: #22262c;
+        --muted: #6b7280;
+        --accent: #3f6499;
+        --hint: #8a6a20;
+        --danger: #a33b40;
+        --ok: #2f7a42;
+        --board: #ece5d8;
+        --board-line: #8c7d67;
+        --node: #8a8071;
+        --p1: #23282f;
+        --p1-edge: #10131a;
+        --p2: #ffffff;
+        --p2-edge: #a8b0ba;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font: 12px/1.4 'Malgun Gothic', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        user-select: none;
+        overflow: hidden;
+      }
+      button, input { font: inherit; color: inherit; }
+      button { cursor: pointer; }
+      button:disabled { opacity: 0.4; cursor: default; }
+      .hidden { display: none !important; }
+
+      .wrap { position: relative; display: flex; flex-direction: column; height: 100%; }
+      .row { display: flex; }
+
+      /* 헤더 — 드래그로 창 이동. 버튼/입력은 드래그에서 제외. */
+      .top {
+        -webkit-app-region: drag;
+        display: flex; align-items: center; gap: 4px;
+        padding: 5px 6px; background: var(--panel);
+        border-bottom: 1px solid var(--line);
+      }
+      .top .logo { font-weight: 700; font-size: 11px; letter-spacing: -0.01em; margin-right: auto; }
+      .top button, .top input, .top .chip { -webkit-app-region: no-drag; }
+      .x {
+        background: transparent; border: 1px solid transparent; border-radius: 5px;
+        padding: 2px 5px; font-size: 11px; color: var(--muted);
+      }
+      .x:hover { border-color: var(--line); color: var(--text); }
+      .k { font-size: 8px; color: var(--muted); margin-right: 2px; }
+
+      .chip {
+        background: transparent; border: 1px solid var(--line); border-radius: 999px;
+        padding: 1px 7px; font-size: 10px; color: var(--muted);
+      }
+      .chip.on { color: var(--text); border-color: var(--accent); }
+
+      .hint { padding: 5px 8px; font-size: 11px; color: var(--muted); min-height: 26px; }
+      .hint b { color: var(--text); font-weight: 600; }
+
+      .board-box { padding: 0 8px; }
+      svg.board { display: block; width: 100%; height: auto; background: var(--board); border-radius: 6px; }
+      .bl { fill: none; stroke: var(--board-line); stroke-width: 3; stroke-linecap: round; }
+      .hit { fill: transparent; }
+      .node { fill: var(--node); }
+      .piece { stroke-width: 2.5; }
+      .p1 .piece { fill: var(--p1); stroke: var(--p1-edge); }
+      .p2 .piece { fill: var(--p2); stroke: var(--p2-edge); }
+      .ring { fill: none; stroke: none; stroke-width: 3; }
+      .millring { fill: none; stroke: var(--ok); stroke-width: 2.5; pointer-events: none; }
+      .can { cursor: pointer; }
+      .place .can.empty .node { fill: var(--accent); }
+      .move .can .ring { stroke: var(--accent); stroke-dasharray: 4 4; }
+      .pickable .ring { stroke: var(--accent); stroke-opacity: 0.45; }
+      .sel .ring { stroke: var(--accent); stroke-opacity: 1; stroke-width: 4; stroke-dasharray: none; }
+      .rm .can .ring { stroke: var(--danger); stroke-width: 4; stroke-dasharray: none; }
+      .board .tip .ring { stroke: var(--hint); stroke-width: 4; stroke-dasharray: none; }
+
+      .foot {
+        margin-top: auto; display: flex; align-items: center; gap: 6px;
+        padding: 6px 8px; border-top: 1px solid var(--line); background: var(--panel);
+      }
+      .foot .grow { margin-left: auto; }
+      .btn {
+        background: transparent; border: 1px solid var(--line); border-radius: 6px;
+        padding: 3px 8px; font-size: 11px;
+      }
+      .btn:hover:not(:disabled) { border-color: var(--accent); }
+      .btn.danger { color: var(--danger); }
+      .cnt { font-size: 10px; color: var(--muted); display: inline-flex; align-items: center; gap: 3px; }
+      .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+      .dot1 { background: var(--p1); border: 2px solid var(--p1-edge); }
+      .dot2 { background: var(--p2); border: 2px solid var(--p2-edge); }
+
+      /* 결과 오버레이 */
+      .over {
+        position: absolute; inset: 0; background: rgba(0, 0, 0, 0.72);
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+      }
+      body.light .over { background: rgba(240, 240, 242, 0.86); }
+      .over .big { font-size: 20px; font-weight: 800; }
+      .over .why { font-size: 11px; color: var(--muted); }
+      .win { color: var(--ok); } .lose { color: var(--danger); } .draw { color: var(--muted); }
+
+      /* 온라인 */
+      .form { padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+      .inp {
+        background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
+        padding: 5px 7px; font-size: 11px; width: 100%;
+        -webkit-app-region: no-drag; user-select: text;
+      }
+      .inp:focus { outline: none; border-color: var(--accent); }
+      .msg { font-size: 10px; color: var(--muted); min-height: 14px; }
+      .msg.err { color: var(--danger); }
+      .code { font-size: 17px; letter-spacing: 0.2em; font-weight: 700; }
+      .plist { display: flex; flex-direction: column; gap: 4px; }
+      .prow {
+        border: 1px solid var(--line); border-radius: 6px; padding: 4px 7px;
+        font-size: 11px; display: flex; align-items: center; gap: 5px;
+      }
+      .prow.empty { border-style: dashed; color: var(--muted); }
+
+      /* 채팅(백틱으로 우측에 펼침) */
+      .game-row { display: flex; flex: 1; min-height: 0; }
+      .game-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+      .chat {
+        width: 170px; flex: none; border-left: 1px solid var(--line);
+        display: flex; flex-direction: column; background: var(--panel);
+      }
+      .chat-msgs { flex: 1; overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 5px; font-size: 10px; }
+      .cm .who { color: var(--muted); font-size: 9px; }
+      .cm .txt { word-break: break-word; }
+      .cm.me .who { color: var(--accent); }
+      .chat-in { display: flex; gap: 4px; padding: 5px; border-top: 1px solid var(--line); }
+
+      .op-row { display: flex; align-items: center; gap: 5px; padding: 4px 8px; border-top: 1px solid var(--line); }
+      .op-row input[type='range'] { flex: 1; -webkit-app-region: no-drag; }
+    </style>
+  </head>
+  <body>
+    <script src="./vendor/nmm-engine.js"></script>
+    <script src="./vendor/supabase.js"></script>
+
+    <!-- ── 혼자 하기 ─────────────────────────────────────────────── -->
+    <div class="wrap" id="solo">
+      <div class="top">
+        <span class="logo">나인 멘스 모리스</span>
+        <button class="chip" id="s-diff" title="난이도 (1/2/3)" tabindex="-1">보통</button>
+        <button class="x" id="s-op" title="투명도" tabindex="-1">🔅</button>
+        <button class="x" id="s-theme" title="테마" tabindex="-1">☀️</button>
+        <button class="x" id="s-close" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
+      </div>
+      <div class="hint" id="s-hint"></div>
+      <div class="board-box"><svg class="board" id="s-board" viewBox="-26 -26 352 352"></svg></div>
+      <div class="foot">
+        <span class="cnt" id="s-c1"></span>
+        <span class="cnt" id="s-c2"></span>
+        <button class="btn grow" id="s-hintbtn" title="힌트 (H)" tabindex="-1">💡</button>
+        <button class="btn" id="s-undo" title="되돌리기 (Z)" tabindex="-1">↩</button>
+        <button class="btn" id="s-new" title="새 게임 (R)" tabindex="-1">↺</button>
+      </div>
+      <div class="over hidden" id="s-over">
+        <div class="big" id="s-over-title"></div>
+        <div class="why" id="s-over-why"></div>
+        <button class="btn" id="s-again" tabindex="-1">다시 하기 <span class="k">Enter</span></button>
+      </div>
+      <div class="op-row hidden" id="s-oprow">
+        <span class="cnt">투명도</span>
+        <input type="range" id="s-opacity" min="30" max="100" step="1" />
+        <span class="cnt" id="s-opval"></span>
+      </div>
+    </div>
+
+    <!-- ── 온라인 대전 ───────────────────────────────────────────── -->
+    <div class="wrap hidden" id="mp">
+      <!-- 입장 -->
+      <div class="wrap" id="mp-entry">
+        <div class="top">
+          <span class="logo">온라인 대전</span>
+          <button class="x" id="m-theme1" title="테마" tabindex="-1">☀️</button>
+          <button class="x" id="m-close1" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
+        </div>
+        <div class="form">
+          <input class="inp" id="m-name" maxlength="24" placeholder="닉네임" />
+          <button class="btn" id="m-create" tabindex="-1">방 만들기</button>
+          <div class="row" style="gap: 4px">
+            <input class="inp" id="m-code" maxlength="6" placeholder="방 코드" style="text-transform: uppercase" />
+            <button class="btn" id="m-join" tabindex="-1">참가</button>
+          </div>
+          <div class="msg" id="m-msg1"></div>
+        </div>
+      </div>
+
+      <!-- 대기실 -->
+      <div class="wrap hidden" id="mp-room">
+        <div class="top">
+          <span class="logo">대기실</span>
+          <button class="x" id="m-theme2" title="테마" tabindex="-1">☀️</button>
+          <button class="x" id="m-close2" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
+        </div>
+        <div class="form">
+          <div class="row" style="align-items: center; gap: 6px">
+            <span class="cnt">방 코드</span>
+            <b class="code" id="m-code-show"></b>
+            <button class="btn" id="m-copy" tabindex="-1">복사</button>
+          </div>
+          <div class="plist" id="m-players"></div>
+          <button class="btn" id="m-start" tabindex="-1">게임 시작</button>
+          <button class="btn" id="m-leave" tabindex="-1">방 나가기</button>
+          <div class="msg" id="m-msg2"></div>
+        </div>
+      </div>
+
+      <!-- 대전 -->
+      <div class="wrap hidden" id="mp-game">
+        <div class="top">
+          <span class="logo" id="m-title">대전</span>
+          <button class="x" id="m-chat-btn" title="채팅 (`)" tabindex="-1">💬</button>
+          <button class="x" id="m-theme3" title="테마" tabindex="-1">☀️</button>
+          <button class="x" id="m-quit" title="방 나가기" tabindex="-1">나가기</button>
+          <button class="x" id="m-close3" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
+        </div>
+        <div class="game-row">
+          <div class="game-main">
+            <div class="hint" id="m-hint"></div>
+            <div class="board-box"><svg class="board" id="m-board" viewBox="-26 -26 352 352"></svg></div>
+            <div class="foot">
+              <span class="cnt" id="m-c1"></span>
+              <span class="cnt" id="m-c2"></span>
+              <button class="btn danger grow" id="m-resign" tabindex="-1">🏳 기권</button>
+            </div>
+          </div>
+          <div class="chat hidden" id="m-chat">
+            <div class="chat-msgs" id="m-chat-msgs"></div>
+            <div class="chat-in">
+              <input class="inp" id="m-chat-input" maxlength="200" placeholder="메시지" />
+            </div>
+          </div>
+        </div>
+        <div class="msg" id="m-msg3" style="padding: 0 8px 6px"></div>
+      </div>
+
+      <!-- 결과 -->
+      <div class="wrap hidden" id="mp-over">
+        <div class="top">
+          <span class="logo">결과</span>
+          <button class="x" id="m-close4" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>
+        </div>
+        <div class="form" style="align-items: center; justify-content: center; flex: 1">
+          <div class="big" id="m-over-title" style="font-size: 20px; font-weight: 800"></div>
+          <div class="why" id="m-over-why"></div>
+          <button class="btn" id="m-again" tabindex="-1">로비로 <span class="k">Enter</span></button>
+        </div>
+      </div>
+    </div>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>
