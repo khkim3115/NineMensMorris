@@ -1,0 +1,36 @@
+name: ✨ 기능 건의
+description: 새 기능이나 개선 아이디어를 제안해주세요.
+title: "[건의] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        제안 감사합니다! 간단한 건의라면 사이트 상단 **💬 버튼**으로 GitHub 계정 없이 익명으로 보낼 수도 있어요.
+  - type: textarea
+    id: idea
+    attributes:
+      label: 어떤 기능/개선을 원하시나요?
+      placeholder: "예) 게임 기록을 저장하고 통계를 볼 수 있으면 좋겠어요."
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: 왜 필요한가요? (선택)
+      description: 어떤 상황에서 불편했는지, 무엇이 좋아지는지 적어주세요.
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: 관련 영역 (선택)
+      options:
+        - 솔로 플레이
+        - 온라인 멀티플레이
+        - 리더보드
+        - 헬퍼(EV 추천)
+        - 데스크톱 트레이 앱
+        - 기타
+    validations:
+      required: false

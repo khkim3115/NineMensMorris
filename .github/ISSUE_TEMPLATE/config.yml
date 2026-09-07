@@ -1,0 +1,7 @@
+# 빈 이슈는 허용(사이트 💬 버튼의 'GitHub 에 직접 등록' 링크가 title/body 를 미리 채워 여는 방식이라 필요).
+# 단, 양식(버그/건의)을 먼저 권장하고, GitHub 계정이 없는 캐주얼 유저는 인앱 피드백으로 유도한다.
+blank_issues_enabled: true
+contact_links:
+  - name: 💬 인앱 피드백 (GitHub 계정 없이)
+    url: https://khkim3115.github.io/YachtDice_Helper/
+    about: GitHub 계정이 없다면 사이트 상단 💬 버튼으로 익명으로 보낼 수 있어요. 버전·환경도 자동으로 첨부돼요.

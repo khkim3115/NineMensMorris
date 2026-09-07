@@ -1,0 +1,115 @@
+name: Build Desktop Tray App
+
+# 릴리스를 publish 하면 Windows 트레이 설치 파일(YachtDice-Tray-Setup.exe)을
+# 자동으로 빌드해 그 릴리스에 첨부한다. 웹 홈의 다운로드 링크
+# (releases/latest/download/YachtDice-Tray-Setup.exe)가 바로 신버전을 받게 된다.
+# 수동 실행(workflow_dispatch) 시에는 빌드 결과를 워크플로 아티팩트로 내려받을 수 있다.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+# GITHUB_TOKEN 권한: 릴리스에 설치 파일 업로드
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+
+      # electron-builder → desktop/release/{YachtDice-Tray-Setup.exe, latest.yml, *.blockmap}
+      # publish 설정(package.json build.publish: github)이 있으므로 빌드만으로도 자동 업데이트
+      # 메타데이터(latest.yml)와 차등 다운로드 맵(.blockmap)이 release/ 에 생성된다.
+      # --publish never: 업로드는 아래 gh 스텝이 전담 — electron-builder 가 자체적으로 v${version}
+      # 태그의 릴리스를 만들지 않게 한다(이 저장소 태그 규약은 tray-vX.Y.Z 라 충돌하기 때문).
+      # 데스크톱은 자립형(popup.html + vendor/supabase.js) — 루트 웹 빌드(../dist) 불필요.
+      - name: Build installer
+        run: npm run dist -- --publish never
+        env:
+          # 코드 서명 인증서 없음 — 자동 탐색 꺼서 서명 시도/실패 방지.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      # 자동 업데이트가 동작하려면 latest.yml 이 반드시 릴리스에 올라가야 한다 — 누락 시 즉시 실패.
+      - name: Verify update metadata was generated
+        shell: bash
+        run: |
+          ls -la release/
+          test -f release/YachtDice-Tray-Setup.exe || { echo "::error::설치 파일(YachtDice-Tray-Setup.exe)이 없습니다"; exit 1; }
+          test -f release/latest.yml || { echo "::error::latest.yml 이 생성되지 않았습니다 — 자동 업데이트가 동작하지 않습니다"; exit 1; }
+
+      # 두 트리거 모두에서 받을 수 있도록 워크플로 아티팩트로도 업로드(설치 파일 + 업데이트 메타데이터).
+      # (path 는 저장소 루트 기준 — defaults.working-directory 는 run 스텝에만 적용)
+      - name: Upload installer as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: YachtDice-Tray-Setup
+          path: |
+            desktop/release/YachtDice-Tray-Setup.exe
+            desktop/release/YachtDice-Tray-Setup.exe.blockmap
+            desktop/release/latest.yml
+          if-no-files-found: error
+
+      # 릴리스 이벤트면 그 릴리스에 설치 파일 + latest.yml(+blockmap) 첨부(재실행 대비 --clobber).
+      # electron-updater 는 릴리스의 latest.yml 을 읽어 신버전을 판단하므로 셋이 함께 올라가야 한다.
+      - name: Attach installer + update metadata to the release
+        if: github.event_name == 'release'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          files=(release/YachtDice-Tray-Setup.exe release/latest.yml)
+          [ -f release/YachtDice-Tray-Setup.exe.blockmap ] && files+=(release/YachtDice-Tray-Setup.exe.blockmap)
+          gh release upload "${{ github.event.release.tag_name }}" "${files[@]}" --clobber
+
+  # macOS 트레이 앱(.dmg) — 코드 서명 인증서($99 Apple Developer)가 없어 ad-hoc 서명으로만 빌드한다(무료).
+  # 그래서 자동 업데이트(electron-updater)는 비활성이라 latest-mac.yml 은 쓰지 않고 .dmg 만 릴리스에 첨부한다.
+  # GitHub Actions 의 macOS 러너는 공개 레포라 무료 — Mac 없이도 .dmg 를 만들 수 있다.
+  build-mac:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+
+      # electron-builder → desktop/release/YachtDice-Tray.dmg (afterPack 훅이 ad-hoc 코드서명 적용).
+      - name: Build dmg
+        run: npm run dist -- --mac --publish never
+        env:
+          # 없는 Developer ID 인증서를 자동 탐색하지 않게 — ad-hoc 서명은 afterPack 훅이 전담.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Verify dmg was generated
+        run: |
+          ls -la release/
+          test -f release/YachtDice-Tray.dmg || { echo "::error::YachtDice-Tray.dmg 가 생성되지 않았습니다"; exit 1; }
+
+      - name: Upload dmg as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: YachtDice-Tray-dmg
+          path: desktop/release/YachtDice-Tray.dmg
+          if-no-files-found: error
+
+      - name: Attach dmg to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" release/YachtDice-Tray.dmg --clobber
