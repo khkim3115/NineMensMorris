@@ -24,7 +24,7 @@ describe('validateFeedbackMessage', () => {
 describe('buildGithubIssueUrl', () => {
   it('레포의 issues/new 로 향한다', () => {
     const url = buildGithubIssueUrl('bug', '버그입니다');
-    expect(url.startsWith('https://github.com/khkim3115/YachtDice_Helper/issues/new?')).toBe(true);
+    expect(url.startsWith('https://github.com/khkim3115/NineMensMorris/issues/new?')).toBe(true);
   });
   it('메시지를 body 파라미터에 인코딩해 담는다(특수문자 포함)', () => {
     const url = buildGithubIssueUrl('bug', '한글 & 특수문자 test');

@@ -1,5 +1,5 @@
 // 사용자 피드백(버그/건의/기타) 제출 + 보조 'GitHub 에 직접 신고' 링크.
-// 쓰기는 submit_feedback RPC(서버 검증·허니팟·레이트리밋) 만 거친다 — 클라 검증은 UX 용일 뿐 최종 게이트가 아니다.
+// 쓰기는 nmm_submit_feedback RPC(서버 검증·허니팟·레이트리밋) 만 거친다 — 클라 검증은 UX 용일 뿐 최종 게이트가 아니다.
 // 모든 방문자가 이미 가진 익명 세션(ensureAnonSession)으로 동작하므로 계정/로그인 불필요.
 // 모듈 최상위는 순수(=Supabase 클라 비의존)로 유지한다. submitFeedback 만 호출 시점에 ./supabase 를 동적 import
 // → 순수 헬퍼(검증·링크·인자변환)는 node 테스트에서 Supabase 그래프 없이 단위 테스트 가능.
@@ -12,7 +12,7 @@ export const FEEDBACK_KIND_LABEL: Record<FeedbackKind, string> = {
   other: '기타',
 };
 
-/** 서버(schema.sql)의 CHECK/검증과 반드시 일치시킬 것. */
+/** 서버(supabase/schema.sql)의 CHECK/검증과 반드시 일치시킬 것. */
 export const MAX_FEEDBACK_MESSAGE = 2000;
 export const MAX_FEEDBACK_CONTACT = 200;
 
@@ -20,7 +20,8 @@ export const MAX_FEEDBACK_CONTACT = 200;
 export interface FeedbackMeta {
   app_version?: string;
   screen?: string;
-  helper_used?: boolean;
+  /** 힌트(최선수 제안)를 쓴 판인지. */
+  hint_used?: boolean;
   user_agent?: string;
   locale?: string;
   viewport?: string;
@@ -35,7 +36,7 @@ export interface FeedbackInput {
   meta?: FeedbackMeta;
 }
 
-/** 클라 입력 검증(UX 용). 서버 submit_feedback 가 최종 게이트. null = 통과. */
+/** 클라 입력 검증(UX 용). 서버 nmm_submit_feedback 가 최종 게이트. null = 통과. */
 export function validateFeedbackMessage(message: string): string | null {
   const t = message.trim();
   if (t.length === 0) return '내용을 입력해 주세요.';
@@ -43,7 +44,7 @@ export function validateFeedbackMessage(message: string): string | null {
   return null;
 }
 
-const REPO_URL = 'https://github.com/khkim3115/YachtDice_Helper';
+const REPO_URL = 'https://github.com/khkim3115/NineMensMorris';
 
 function firstLine(s: string): string {
   return (s.split('\n')[0] ?? '').trim();
@@ -54,7 +55,7 @@ function metaLines(meta?: FeedbackMeta): string {
   const rows: string[] = [];
   if (meta.app_version) rows.push(`- 버전: ${meta.app_version}`);
   if (meta.screen) rows.push(`- 화면: ${meta.screen}`);
-  if (meta.helper_used !== undefined) rows.push(`- 헬퍼 사용: ${meta.helper_used ? '예' : '아니오'}`);
+  if (meta.hint_used !== undefined) rows.push(`- 힌트 사용: ${meta.hint_used ? '예' : '아니오'}`);
   if (meta.locale) rows.push(`- 언어: ${meta.locale}`);
   if (meta.viewport) rows.push(`- 화면 크기: ${meta.viewport}`);
   if (meta.user_agent) rows.push(`- UA: ${meta.user_agent}`);
@@ -98,11 +99,11 @@ export function collectFeedbackMeta(extra?: Partial<FeedbackMeta>): FeedbackMeta
   return meta;
 }
 
-/** 피드백 제출. 익명 세션 보장 후 submit_feedback RPC 호출(서버가 검증·레이트리밋). */
+/** 피드백 제출. 익명 세션 보장 후 nmm_submit_feedback RPC 호출(서버가 검증·레이트리밋). */
 export async function submitFeedback(input: FeedbackInput): Promise<void> {
   const { supabase, isSupabaseConfigured, ensureAnonSession } = await import('./supabase');
   if (!isSupabaseConfigured) throw new Error('피드백 서버가 설정되지 않았습니다.');
   await ensureAnonSession();
-  const { error } = await supabase.rpc('submit_feedback', buildFeedbackArgs(input));
+  const { error } = await supabase.rpc('nmm_submit_feedback', buildFeedbackArgs(input));
   if (error) throw error;
 }
