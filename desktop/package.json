@@ -1,6 +1,6 @@
 {
   "name": "nine-mens-morris-desktop",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "나인 멘스 모리스 트레이 데스크톱 앱 — 시스템 트레이에 상주하는 Electron 미니 게임",
   "main": "main.js",
