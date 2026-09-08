@@ -443,6 +443,15 @@ a {
   animation: pulse 1s ease-in-out infinite;
 }
 
+/* 이동 힌트의 출발점 — "집어야 할 말". 도착점처럼 반짝이면 둘이 서로 경쟁하므로 정적인
+   금색 점선 링으로 두고, 그 말을 실제로 고르면 선택 링에 자리를 내준다. */
+.board .pt-hint-from:not(.pt-selected) .pt-ring {
+  stroke: var(--hint);
+  stroke-opacity: 1;
+  stroke-width: 3;
+  stroke-dasharray: 4 4;
+}
+
 .board-place .pt-hint.pt-empty .pt-node {
   r: 10;
   fill: var(--hint);

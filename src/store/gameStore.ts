@@ -140,7 +140,9 @@ export const useGameStore = create<GameStore>((set, get) => {
     }
     const cur = get().state;
     const next = applyMove(cur, move);
-    set({ state: next, past: [...get().past, cur], lastMove: move, thinking: false });
+    // 불변식: AI 가 두고 나면 화면에 힌트가 남지 않는다. 지우는 책임을 commit 한 곳에만 두면
+    // 나중에 다른 경로가 생겼을 때 지나간 국면의 힌트가 새 보드 위에 남는다.
+    set({ state: next, past: [...get().past, cur], lastMove: move, thinking: false, hint: null });
     if (next.turn !== humanSeat && next.phase !== 'over') void runAi();
   }
 
@@ -239,8 +241,11 @@ export const useGameStore = create<GameStore>((set, get) => {
       if (state.phase === 'over' || state.turn !== humanSeat) return;
       set({ hintLoading: true, hintUsedThisGame: true });
       void requestHint(state).then(({ move }) => {
+        // 새 게임·되돌리기·기권이 있었으면 그쪽이 이미 정리했다. 여기서는 손대지 않는다.
         if (get().generation !== generation) return;
-        set({ hint: move, hintLoading: false });
+        // 기다리는 동안 국면이 움직였으면(사람 착수 → AI 응수) 이 힌트는 지나간 국면의 수다 —
+        // generation 은 착수로 오르지 않으므로 국면 자체를 대조해야 한다. 버리되 로딩은 푼다.
+        set({ hint: get().state === state ? move : null, hintLoading: false });
       });
     },
 

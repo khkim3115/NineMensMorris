@@ -27,7 +27,7 @@ export interface BoardProps {
   me: Player | null;
   selected: number | null;
   lastMove?: Move | null;
-  /** 힌트로 제안된 수(있으면 목적지를 반짝인다). */
+  /** 힌트로 제안된 수(목적지를 반짝이고, 이동이면 출발점도 함께 표시한다). */
   hint?: Move | null;
   /** true 면 클릭을 받지 않는다(AI 계산 중 등). */
   disabled?: boolean;
@@ -93,6 +93,7 @@ export function Board({ state, me, selected, lastMove, hint, disabled, onPoint }
           i === last.to ? 'pt-last' : '',
           i === last.from ? 'pt-last-from' : '',
           i === tip.to ? 'pt-hint' : '',
+          i === tip.from ? 'pt-hint-from' : '',
         ]
           .filter(Boolean)
           .join(' ');
