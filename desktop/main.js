@@ -471,7 +471,17 @@ function runSmoke() {
       ),
     );
 
-    // 첫 지점 클릭 → 내 말 1개, 잠시 뒤 AI 응수로 상대 말 1개.
+    // 선후공을 흑으로 고정하고 새 판을 연다. 저장된 선택이 백·랜덤이면 아래 착수 검사가
+    // 실행마다 다른 게임이 되어 조용히 엉뚱한 값을 보고하게 된다.
+    const seatBefore = await js(`localStorage.getItem('nmm_seat')`);
+    const seat = await js(
+      `(() => { const c = document.getElementById('s-seat');` +
+        ` for (let i = 0; i < 4 && c.dataset.seat !== '1'; i++) c.click();` +
+        ` document.getElementById('s-new').click(); return c.dataset.seat; })()`,
+    );
+    await new Promise((r) => setTimeout(r, 200));
+
+    // 첫 지점 클릭 → 내 말(흑) 1개, 잠시 뒤 AI 응수로 상대 말(백) 1개.
     await js(`document.querySelectorAll('#s-board g.pt')[0].dispatchEvent(new MouseEvent('click', {bubbles: true}))`);
     await new Promise((r) => setTimeout(r, 1800));
     const played = JSON.parse(
@@ -520,7 +530,14 @@ function runSmoke() {
     await new Promise((r) => setTimeout(r, 400));
     const hidden = !win.isDestroyed() && !win.isVisible();
 
-    const out = { boot, played, tips, themeToggles, mpVisible, escHides: hidden };
+    // 점검이 사용자의 선택을 덮어쓴 채로 끝나지 않게 되돌린다.
+    await js(
+      seatBefore === null
+        ? `localStorage.removeItem('nmm_seat')`
+        : `localStorage.setItem('nmm_seat', ${JSON.stringify(seatBefore)})`,
+    );
+
+    const out = { boot, seat, played, tips, themeToggles, mpVisible, escHides: hidden };
     console.log('[nmm] smoke', JSON.stringify(out));
     if (process.env.NMM_SMOKE_OUT) {
       try {

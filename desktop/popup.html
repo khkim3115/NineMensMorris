@@ -67,8 +67,12 @@
         padding: 5px 6px; background: var(--panel);
         border-bottom: 1px solid var(--line);
       }
-      .top .logo { font-weight: 700; font-size: 11px; letter-spacing: -0.01em; margin-right: auto; }
-      .top button, .top input, .top .chip { -webkit-app-region: no-drag; }
+      /* 창 폭이 300px 고정이라 칩이 늘어나면 제목이 아니라 ✕ 가 밀려난다 — 제목을 말줄임한다. */
+      .top .logo {
+        font-weight: 700; font-size: 11px; letter-spacing: -0.01em; margin-right: auto;
+        min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .top button, .top input, .top .chip { -webkit-app-region: no-drag; flex: none; }
       .x {
         background: transparent; border: 1px solid transparent; border-radius: 5px;
         padding: 2px 5px; font-size: 11px; color: var(--muted);
@@ -81,6 +85,7 @@
         padding: 1px 7px; font-size: 10px; color: var(--muted);
       }
       .chip.on { color: var(--text); border-color: var(--accent); }
+      .chip .dot { margin-right: 3px; vertical-align: -1px; }
 
       .hint { padding: 5px 8px; font-size: 11px; color: var(--muted); min-height: 26px; }
       .hint b { color: var(--text); font-weight: 600; }
@@ -173,6 +178,7 @@
       <div class="top">
         <span class="logo">나인 멘스 모리스</span>
         <button class="chip" id="s-diff" title="난이도 (1/2/3)" tabindex="-1">보통</button>
+        <button class="chip" id="s-seat" title="내 색 (S) — 흑 / 백 / 랜덤" tabindex="-1"></button>
         <button class="x" id="s-op" title="투명도" tabindex="-1">🔅</button>
         <button class="x" id="s-theme" title="테마" tabindex="-1">☀️</button>
         <button class="x" id="s-close" title="닫기 (Esc)" tabindex="-1"><span class="k">Esc</span>✕</button>

@@ -2,6 +2,7 @@
 import { DIFFICULTY_LABEL } from '../engine/ai';
 import type { Difficulty } from '../engine/ai';
 import type { GameResult, Player } from '../core/gameState';
+import { SIDE_LABEL } from '../core/view';
 import { useAppStore } from '../store/appStore';
 import { useGameStore } from '../store/gameStore';
 
@@ -49,6 +50,7 @@ export function GameOver() {
         <p className="over-detail">{detail}</p>
         <div className="over-meta">
           <span className="chip">난이도 {DIFFICULTY_LABEL[difficulty]}</span>
+          <span className="chip">내 색 {SIDE_LABEL[humanSeat]}</span>
           <span className="chip">{ply}수</span>
           {hintUsed && <span className="chip">💡 힌트 사용</span>}
         </div>

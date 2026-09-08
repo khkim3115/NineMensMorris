@@ -271,6 +271,12 @@ a {
   border: 2px solid var(--p2-edge);
 }
 
+/* 랜덤 — 반반 원. 같은 토큰을 쓰므로 테마가 바뀌어도 따라온다(이모지는 폰트마다 깨진다). */
+.side-random {
+  background: linear-gradient(90deg, var(--p1-fill) 0 50%, var(--p2-fill) 50% 100%);
+  border: 2px solid var(--p2-edge);
+}
+
 .chip {
   background: var(--surface-2);
   border: 1px solid var(--line);
@@ -582,6 +588,17 @@ a {
 .seg-btn.on {
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+
+/* 선후공은 버튼이 3개라 좁은 화면에서 빠듯하다 — 여백을 줄이고, 넘치면 넘치는 대신 줄바꿈. */
+.seg-seat {
+  flex-wrap: wrap;
+}
+
+.seg-seat .seg-btn {
+  min-width: 0;
+  padding: 8px 6px;
+  font-size: 0.8rem;
 }
 
 /* ── 앱 받기 ──────────────────────────────────────────────────────────── */

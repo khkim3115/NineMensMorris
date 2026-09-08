@@ -146,32 +146,45 @@ for (const id of ['s-close', 'm-close1', 'm-close2', 'm-close3', 'm-close4']) {
 const DIFFS = ['easy', 'normal', 'hard'];
 let diff = localStorage.getItem('nmm_diff') || 'normal';
 if (!DIFFS.includes(diff)) diff = 'normal';
-const ME = 1; // 트레이에서는 항상 흑(선공)으로 둔다 — 설정을 줄여 단순하게.
+
+// 선후공: 고른 값(seatPref)과 이번 판의 색(me)은 다른 것이다. 웹과 같은 규칙을 쓰려고
+// 리졸버는 엔진 번들(N.resolveSeat)에서 가져온다 — 여기서 다시 구현하지 않는다.
+let seatPref = N.toSeatPref(localStorage.getItem('nmm_seat'));
+let gameSeatPref = seatPref; // 지금 판이 시작될 때의 선택. 어긋나면 '다음 판부터' 라는 뜻.
+let me = N.resolveSeat(seatPref);
 
 let s = N.createInitialState();
 let sel = null;
 let past = [];
 let thinking = false;
 let tip = null;
+// 새 판마다 올린다. 예약해 둔 AI 탐색이 뒤늦게 깨어나 남의 판에 수를 두지 않게 하는 세대 번호
+// (웹 스토어의 generation 과 같은 역할). 백을 고를 수 있게 되면서 새 판도 AI 를 걸기 때문에 필요하다.
+let gen = 0;
 const sBoard = $('s-board');
 const sNodes = buildBoard(sBoard, onSoloPoint);
 
 function renderSolo() {
-  drawBoard(sBoard, sNodes, s, thinking ? null : ME, sel, tip);
+  drawBoard(sBoard, sNodes, s, thinking ? null : me, sel, tip);
   const [c1, c2] = counts(s);
   $('s-c1').innerHTML = '<span class="dot dot1"></span>' + c1;
   $('s-c2').innerHTML = '<span class="dot dot2"></span>' + c2;
   $('s-hint').innerHTML = thinking
     ? '<b>AI</b> 생각 중…'
-    : '<b>' + N.phaseLabel(s) + '</b> · ' + N.turnHint(s, ME);
+    : '<b>' + N.phaseLabel(s) + '</b> · ' + N.turnHint(s, me);
   $('s-diff').textContent = N.DIFFICULTY_LABEL[diff];
-  $('s-undo').disabled = past.length === 0 || thinking;
-  $('s-hintbtn').disabled = thinking || s.phase === 'over' || s.turn !== ME;
+  // 점 = 이번 판 내 색, 글자 = 고른 값. 둘이 어긋나 있으면 .on 이 켜져 '다음 판부터' 를 말한다.
+  $('s-seat').innerHTML =
+    '<span class="dot dot' + me + '"></span>' + N.SEAT_PREF_LABEL[seatPref];
+  $('s-seat').dataset.seat = seatPref;
+  $('s-seat').classList.toggle('on', seatPref !== gameSeatPref);
+  $('s-undo').disabled = thinking || undoTargetIndex() < 0;
+  $('s-hintbtn').disabled = thinking || s.phase === 'over' || s.turn !== me;
 
   const over = s.phase === 'over';
   $('s-over').classList.toggle('hidden', !over);
   if (over && s.result) {
-    const r = resultText(s.result, ME);
+    const r = resultText(s.result, me);
     $('s-over-title').textContent = r.title;
     $('s-over-title').className = 'big ' + r.tone;
     $('s-over-why').textContent = r.why;
@@ -180,7 +193,7 @@ function renderSolo() {
 
 function onSoloPoint(p) {
   if (thinking || s.phase === 'over') return;
-  const r = N.resolveClick(s, ME, sel, p);
+  const r = N.resolveClick(s, me, sel, p);
   if (!r) return;
   if (r.kind === 'select') { sel = r.point; renderSolo(); return; }
   past.push(s);
@@ -192,47 +205,69 @@ function onSoloPoint(p) {
 }
 
 function runAi() {
-  if (s.phase === 'over' || s.turn === ME) return;
+  if (s.phase === 'over' || s.turn === me) return;
   thinking = true;
   renderSolo();
+  const g = gen;
   // 탐색은 동기지만 한 프레임 뒤로 미뤄 '생각 중' 을 먼저 그린다.
   setTimeout(() => {
+    if (g !== gen) return; // 그 사이 새 판이 시작됐다 — 이 탐색 결과는 버린다.
     const m = N.chooseMove(s, diff, { timeBudgetMs: 700 });
+    if (g !== gen) return;
     thinking = false;
     if (m) {
       past.push(s);
       s = N.applyMove(s, m);
     }
     renderSolo();
-    if (s.turn !== ME && s.phase !== 'over') runAi();
+    if (s.turn !== me && s.phase !== 'over') runAi();
   }, 30);
 }
 
 function newGame() {
+  gen++; // 이전 판에 예약된 탐색을 무효로 만든다.
+  // 좌석은 판이 시작될 때 딱 한 번 확정된다(랜덤이면 여기서 뽑는다).
+  gameSeatPref = seatPref;
+  me = N.resolveSeat(seatPref);
   s = N.createInitialState();
   past = [];
   sel = null;
   tip = null;
   thinking = false;
   renderSolo();
+  runAi(); // 내가 백이면 흑(AI)이 먼저 둔다. 이게 없으면 판이 그대로 멈춘다.
+}
+
+/**
+ * 되감을 자리(내가 다시 둘 수 있는 국면)의 인덱스. 없으면 -1.
+ * 내가 백이면 AI 가 먼저 둔 국면이 바닥에 남아 되감을 곳이 없을 수 있다 —
+ * "기록이 있다" 와 "되돌릴 수 있다" 는 같은 말이 아니다.
+ */
+function undoTargetIndex() {
+  for (let i = past.length - 1; i >= 0; i--) {
+    const st = past[i];
+    if (st.turn === me && !st.mustRemove && st.phase !== 'over') return i;
+  }
+  return -1;
 }
 
 function undo() {
   if (thinking) return;
-  while (past.length) {
-    const st = past.pop();
-    if (st.turn === ME && !st.mustRemove && st.phase !== 'over') {
-      s = st; sel = null; tip = null; renderSolo();
-      return;
-    }
-  }
+  // 자리를 먼저 찾고 찾았을 때만 잘라낸다 — 먼저 pop 하면 못 찾았을 때 기록이 통째로 날아간다.
+  const at = undoTargetIndex();
+  if (at < 0) return;
+  s = past[at];
+  past.length = at;
+  sel = null;
+  tip = null;
+  renderSolo();
 }
 
 $('s-new').addEventListener('click', newGame);
 $('s-again').addEventListener('click', newGame);
 $('s-undo').addEventListener('click', undo);
 $('s-hintbtn').addEventListener('click', () => {
-  if (thinking || s.phase === 'over' || s.turn !== ME) return;
+  if (thinking || s.phase === 'over' || s.turn !== me) return;
   tip = N.bestMove(s, 500).move;
   renderSolo();
 });
@@ -241,6 +276,20 @@ $('s-diff').addEventListener('click', () => {
   localStorage.setItem('nmm_diff', diff);
   renderSolo();
 });
+$('s-seat').addEventListener('click', cycleSeat);
+
+/**
+ * 흑 → 백 → 랜덤 순환. 빈 판이면 곧바로 새 판으로 반영하고(잃을 게 없다),
+ * 두던 중이면 다음 판으로 미룬다 — 실수로 한 번 눌러 대국이 날아가지 않게.
+ */
+function cycleSeat() {
+  if (thinking) return;
+  const i = N.SEAT_PREFS.indexOf(seatPref);
+  seatPref = N.SEAT_PREFS[(i + 1) % N.SEAT_PREFS.length];
+  localStorage.setItem('nmm_seat', seatPref);
+  if (s.ply === 0) newGame();
+  else renderSolo();
+}
 
 /* ── 온라인 대전 (Supabase, 서버 권위) ─────────────────────── */
 // 공개 키 — 보안은 DB 의 RLS + SECURITY DEFINER RPC 가 담당한다(웹과 동일).
@@ -561,6 +610,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'r' || e.key === 'R') { e.preventDefault(); newGame(); return; }
   if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); undo(); return; }
   if (e.key === 'h' || e.key === 'H') { e.preventDefault(); $('s-hintbtn').click(); return; }
+  if (e.key === 's' || e.key === 'S') { e.preventDefault(); cycleSeat(); return; }
   if (e.key === 'Enter' && s.phase === 'over') { e.preventDefault(); newGame(); return; }
   const d = ['1', '2', '3'].indexOf(e.key);
   if (d >= 0) {
@@ -571,5 +621,6 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-renderSolo();
+// 부팅도 새 판으로 연다 — 저장된 선택이 백·랜덤이면 여기서 좌석을 확정하고 AI 가 선착한다.
+newGame();
 renderMp();

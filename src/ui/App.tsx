@@ -6,7 +6,8 @@ import { Header } from './Header';
 import { TurnBanner } from './TurnBanner';
 import { DIFFICULTY_LABEL } from '../engine/ai';
 import { other, type Player } from '../core/gameState';
-import { useGameStore } from '../store/gameStore';
+import { SIDE_LABEL } from '../core/view';
+import { canUndo, useGameStore } from '../store/gameStore';
 
 export default function App() {
   const state = useGameStore((s) => s.state);
@@ -17,7 +18,7 @@ export default function App() {
   const lastMove = useGameStore((s) => s.lastMove);
   const hint = useGameStore((s) => s.hint);
   const hintLoading = useGameStore((s) => s.hintLoading);
-  const canUndo = useGameStore((s) => s.past.length > 0);
+  const undoable = useGameStore(canUndo);
   const clickPoint = useGameStore((s) => s.clickPoint);
   const undo = useGameStore((s) => s.undo);
   const askHint = useGameStore((s) => s.askHint);
@@ -27,8 +28,9 @@ export default function App() {
   const over = state.phase === 'over';
   const myTurn = !over && !thinking && state.turn === humanSeat;
   const aiSeat: Player = other(humanSeat);
+  // 이름에 색을 달아 두면 랜덤으로 뽑힌 판에서도 배너만 보고 내 색을 알 수 있다.
   const names: Record<Player, string> = {
-    [humanSeat]: '나',
+    [humanSeat]: `나 (${SIDE_LABEL[humanSeat]})`,
     [aiSeat]: `AI (${DIFFICULTY_LABEL[difficulty]})`,
   } as Record<Player, string>;
 
@@ -67,7 +69,7 @@ export default function App() {
         <button className="btn-ghost" onClick={askHint} disabled={!myTurn || hintLoading} title="힌트 (H)">
           {hintLoading ? '⏳ 계산 중' : '💡 힌트'}
         </button>
-        <button className="btn-ghost" onClick={undo} disabled={!canUndo || thinking} title="되돌리기 (Z)">
+        <button className="btn-ghost" onClick={undo} disabled={!undoable} title="되돌리기 (Z)">
           ↩ 되돌리기
         </button>
         <button className="btn-ghost" onClick={() => newGame()} title="새 게임 (N)">

@@ -39,6 +39,11 @@ cd desktop && npm run dist               # 설치 파일 → desktop/release/
   안 그러면 웹과 트레이 앱의 규칙·AI 가 어긋난다.
 - **밀 완성 후 상대 말 제거는 별도의 ply(`mustRemove`) 다** — 차례는 유지된다. UI 2클릭 흐름, 서버 RPC,
   탐색이 모두 이 표현을 공유한다. 탐색은 자식의 `turn` 이 바뀔 때만 부호를 뒤집는다.
+- **선후공은 설정(`SeatPref`)과 이번 판의 좌석(`Player`)이 다른 값이다.** 고르는 건 `'1'|'2'|'random'`,
+  판에 쓰는 건 `1|2` — 섞으면 `'random'` 이 좌석 자리로 새어들어 조용히 흑이 된다. 좌석은 새 판을
+  시작할 때 `resolveSeat` 로 **딱 한 번** 확정되고 판이 끝날 때까지 불변이다. 되돌리기·힌트·기권·`runAi`
+  가 모두 좌석 기준이라 판 도중 바꾸면 보드가 잠긴다. 사람이 백이면 **새 판 직후 AI 가 먼저 둬야 한다**
+  (웹 `startGame`, 트레이 `newGame`) — 안 그러면 아무도 두지 않고 판이 멈춘다.
 
 ## Layering
 
@@ -49,6 +54,7 @@ src/core/      순수 규칙 (UI·네트워크 무관, 테스트 1급 대상)
   gameState.ts   legalMoves · applyMoveInPlace/undoMove · applyMove · 종료 판정
   zobrist.ts     국면 해시 (반복 무승부 + 엔진 전치표 공용)
   view.ts        boardView(하이라이트) · resolveClick(클릭 의미) · turnHint/phaseLabel(문구)
+                 · SeatPref/resolveSeat(선후공 선택 → 이번 판 좌석) — 웹·트레이 공용 어휘
   rng.ts         mulberry32 — zobrist 키와 AI 무작위성 공용
   testkit.ts     테스트 전용 국면 빌더(24글자 보드 문자열)
 src/engine/    AI (UI 무관)

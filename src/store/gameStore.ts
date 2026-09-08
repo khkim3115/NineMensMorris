@@ -14,13 +14,14 @@ import {
   type Move,
   type Player,
 } from '../core/gameState';
-import { resolveClick } from '../core/view';
+import { SEAT_PREFS, resolveClick, resolveSeat, toSeatPref, type SeatPref } from '../core/view';
 import { cancelPendingAi, requestAiMove, requestHint } from '../engine/aiClient';
 import type { Difficulty } from '../engine/ai';
 
 export type Theme = 'dark' | 'light';
 
 const DIFFICULTY_KEY = 'nmm_difficulty';
+/** 값은 '1'|'2'|'random'. 예전 버전이 남긴 '1'/'2' 와 그대로 호환된다. */
 const SEAT_KEY = 'nmm_seat';
 const THEME_KEY = 'nmm_theme';
 
@@ -48,12 +49,27 @@ function applyTheme(theme: Theme) {
   if (typeof document !== 'undefined') document.documentElement.dataset.theme = theme;
 }
 
+/**
+ * 되감을 자리(사람이 다시 둘 수 있는 국면)의 인덱스. 없으면 -1.
+ * 내가 백이면 AI 가 먼저 둔 국면이 스택 바닥에 남아 되감을 곳이 없을 수 있다 —
+ * 그래서 "기록이 있다" 와 "되돌릴 수 있다" 는 같은 말이 아니다.
+ */
+function undoTargetIndex(past: GameState[], humanSeat: Player): number {
+  for (let i = past.length - 1; i >= 0; i--) {
+    const st = past[i];
+    if (st.turn === humanSeat && !st.mustRemove && st.phase !== 'over') return i;
+  }
+  return -1;
+}
+
 interface GameStore {
   state: GameState;
   /** 되돌리기용 이전 국면 스택(사람·AI 수 모두 쌓인다). */
   past: GameState[];
   difficulty: Difficulty;
-  /** 사람이 잡는 색. 1P(흑)가 선공. */
+  /** 고른 선후공(랜덤 포함). 진행 중인 판이 아니라 다음 판에 적용된다. */
+  seatPref: SeatPref;
+  /** 이번 판에서 사람이 실제로 잡은 색. startGame 이 seatPref 를 확정한 값. */
   humanSeat: Player;
   theme: Theme;
 
@@ -75,13 +91,13 @@ interface GameStore {
   /** 늦게 온 AI 응답을 버리기 위한 세대 번호. */
   generation: number;
 
-  newGame: (opts?: { difficulty?: Difficulty; humanSeat?: Player }) => void;
+  newGame: (opts?: { difficulty?: Difficulty; seatPref?: SeatPref }) => void;
   clickPoint: (point: number) => void;
   undo: () => void;
   resign: () => void;
   askHint: () => void;
   setDifficulty: (d: Difficulty) => void;
-  setHumanSeat: (p: Player) => void;
+  setSeatPref: (p: SeatPref) => void;
   toggleTheme: () => void;
   setHelpOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
@@ -128,12 +144,15 @@ export const useGameStore = create<GameStore>((set, get) => {
     if (next.turn !== humanSeat && next.phase !== 'over') void runAi();
   }
 
-  function startGame(difficulty: Difficulty, humanSeat: Player) {
+  function startGame(difficulty: Difficulty, seatPref: SeatPref) {
     cancelPendingAi();
+    // 랜덤이면 여기서 딱 한 번 뽑는다. 판이 끝날 때까지 이 좌석은 바뀌지 않는다.
+    const humanSeat = resolveSeat(seatPref);
     set((s) => ({
       state: createInitialState(),
       past: [],
       difficulty,
+      seatPref,
       humanSeat,
       selected: null,
       thinking: false,
@@ -151,7 +170,9 @@ export const useGameStore = create<GameStore>((set, get) => {
     state: createInitialState(),
     past: [],
     difficulty: readStored<Difficulty>(DIFFICULTY_KEY, ['easy', 'normal', 'hard'], 'normal'),
-    humanSeat: readStored(SEAT_KEY, ['1', '2'], '1') === '2' ? 2 : 1,
+    seatPref: toSeatPref(readStored<SeatPref>(SEAT_KEY, SEAT_PREFS, '1')),
+    // 아직 판이 시작되지 않은 자리표시자. 솔로 화면은 홈을 거쳐야 하므로 startGame 이 먼저 돈다.
+    humanSeat: 1,
     theme: initialTheme,
 
     selected: null,
@@ -166,8 +187,8 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     newGame: (opts) => {
       const difficulty = opts?.difficulty ?? get().difficulty;
-      const humanSeat = opts?.humanSeat ?? get().humanSeat;
-      startGame(difficulty, humanSeat);
+      const seatPref = opts?.seatPref ?? get().seatPref;
+      startGame(difficulty, seatPref);
     },
 
     clickPoint: (point) => {
@@ -184,21 +205,12 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     undo: () => {
       const { past, humanSeat, generation } = get();
-      const rest = [...past];
-      let target: GameState | null = null;
-      // 사람이 다시 둘 수 있는 지점(내 차례 시작)까지 되감는다.
-      while (rest.length > 0) {
-        const st = rest.pop()!;
-        if (st.turn === humanSeat && !st.mustRemove && st.phase !== 'over') {
-          target = st;
-          break;
-        }
-      }
-      if (!target) return;
+      const at = undoTargetIndex(past, humanSeat);
+      if (at < 0) return;
       cancelPendingAi();
       set({
-        state: target,
-        past: rest,
+        state: past[at],
+        past: past.slice(0, at),
         selected: null,
         thinking: false,
         lastMove: null,
@@ -237,9 +249,11 @@ export const useGameStore = create<GameStore>((set, get) => {
       set({ difficulty: d });
     },
 
-    setHumanSeat: (p) => {
-      persist(SEAT_KEY, String(p));
-      set({ humanSeat: p });
+    // 진행 중인 판의 humanSeat 은 절대 건드리지 않는다 — 좌석이 판 도중 바뀌면
+    // 보드·runAi·되돌리기가 서로 다른 색을 보게 되어 판이 그대로 멈춘다.
+    setSeatPref: (p) => {
+      persist(SEAT_KEY, p);
+      set({ seatPref: p });
     },
 
     toggleTheme: () => {
@@ -253,6 +267,11 @@ export const useGameStore = create<GameStore>((set, get) => {
     setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   };
 });
+
+/** 파생: 지금 되돌릴 수 있는가(기록이 있어도 되감을 자리가 없을 수 있다). */
+export function canUndo(s: { past: GameState[]; humanSeat: Player; thinking: boolean }): boolean {
+  return !s.thinking && undoTargetIndex(s.past, s.humanSeat) >= 0;
+}
 
 /** 파생: 사람 차례이고 AI 를 기다리지 않는 상태인가. */
 export function isHumanTurn(s: {
