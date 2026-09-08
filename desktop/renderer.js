@@ -94,6 +94,8 @@ function drawBoard(svg, nodes, state, me, selected, tip) {
   svg.setAttribute('class', 'board ' + mode);
 
   const tipTo = !tip ? -1 : tip.k === 'remove' ? tip.at : tip.to;
+  // 이동 힌트는 도착점만으로 어느 말을 집을지 정해지지 않는다 — 출발점도 같이 가리킨다.
+  const tipFrom = tip && tip.k === 'move' ? tip.from : -1;
   for (let i = 0; i < N.POINT_COUNT; i++) {
     const owner = state.board[i];
     const n = nodes[i];
@@ -104,6 +106,7 @@ function drawBoard(svg, nodes, state, me, selected, tip) {
     if (view.selectable.has(i)) cls.push('pickable');
     if (selected === i) cls.push('sel');
     if (i === tipTo) cls.push('tip');
+    if (i === tipFrom) cls.push('tipfrom');
     n.g.setAttribute('class', cls.join(' '));
     n.piece.classList.toggle('hidden', owner === 0);
     n.mill.classList.toggle('hidden', !(owner !== 0 && view.inMill.has(i)));

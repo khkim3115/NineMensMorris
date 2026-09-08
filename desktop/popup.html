@@ -107,6 +107,9 @@
       .sel .ring { stroke: var(--accent); stroke-opacity: 1; stroke-width: 4; stroke-dasharray: none; }
       .rm .can .ring { stroke: var(--danger); stroke-width: 4; stroke-dasharray: none; }
       .board .tip .ring { stroke: var(--hint); stroke-width: 4; stroke-dasharray: none; }
+      /* 이동 힌트의 출발점 — 도착점(굵은 실선)과 경쟁하지 않게 점선으로 두고,
+         그 말을 실제로 고르면 선택 링에 자리를 내준다. */
+      .board .tipfrom:not(.sel) .ring { stroke: var(--hint); stroke-opacity: 1; stroke-width: 3; stroke-dasharray: 4 4; }
 
       .foot {
         margin-top: auto; display: flex; align-items: center; gap: 6px;
