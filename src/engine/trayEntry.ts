@@ -41,8 +41,19 @@ export type {
   Player,
   Snapshot,
 } from '../core/gameState';
-export { SIDE_LABEL, boardView, phaseLabel, resolveClick, turnHint } from '../core/view';
-export type { BoardView, ClickResult } from '../core/view';
+export {
+  SEAT_PREF_DESC,
+  SEAT_PREF_LABEL,
+  SEAT_PREFS,
+  SIDE_LABEL,
+  boardView,
+  phaseLabel,
+  resolveClick,
+  resolveSeat,
+  toSeatPref,
+  turnHint,
+} from '../core/view';
+export type { BoardView, ClickResult, SeatPref } from '../core/view';
 export {
   DIFFICULTIES,
   DIFFICULTY_DESC,

@@ -83,6 +83,46 @@ export function resolveClick(
 
 export const SIDE_LABEL: Record<Player, string> = { 1: '흑', 2: '백' };
 
+/* ── 선후공 선택 ─────────────────────────────────────────────────────── */
+//
+// 설정값(SeatPref)과 이번 판의 좌석(Player)은 다른 것이다 — 섞으면 'random' 이
+// 좌석 자리로 새어들어 조용히 흑이 된다. 고르는 건 SeatPref, 판에 쓰는 건 Player.
+
+/** 사용자가 고른 선후공. 흑이 언제나 선공이므로 색 = 선후공이다. */
+export type SeatPref = '1' | '2' | 'random';
+
+export const SEAT_PREFS: readonly SeatPref[] = ['1', '2', 'random'];
+
+export const SEAT_PREF_LABEL: Record<SeatPref, string> = {
+  '1': '흑',
+  '2': '백',
+  random: '랜덤',
+};
+
+export const SEAT_PREF_DESC: Record<SeatPref, string> = {
+  '1': '내가 먼저',
+  '2': 'AI 가 먼저',
+  random: '판마다 무작위',
+};
+
+/** 저장값 → SeatPref. 예전에 쓰던 '1'/'2' 도 그대로 유효하고, 모르는 값은 흑. */
+export function toSeatPref(v: string | null | undefined): SeatPref {
+  return v === '2' || v === 'random' ? v : '1';
+}
+
+/**
+ * 선택을 이번 판의 좌석으로 확정한다. 'random' 은 새 판을 시작할 때 딱 한 번만 뽑는다 —
+ * 되돌리기·힌트·기권이 모두 좌석을 기준으로 돌기 때문에 판 도중 다시 뽑으면 국면이 깨진다.
+ *
+ * 시드 PRNG(rng.ts) 가 아니라 Math.random 을 쓴다: 재현 가능한 난수는 zobrist·AI 잡음의
+ * 요구사항이고, 색 추첨은 반대로 예측할 수 없어야 한다. 테스트는 rand 를 주입한다.
+ */
+export function resolveSeat(pref: SeatPref, rand: number = Math.random()): Player {
+  if (pref === '1') return 1;
+  if (pref === '2') return 2;
+  return rand < 0.5 ? 1 : 2;
+}
+
 /** 지금 둘 사람이 해야 할 일. me 가 null 이면 관전 시점의 서술. */
 export function turnHint(s: GameState, me: Player | null): string {
   if (s.phase === 'over') return '게임이 끝났습니다.';

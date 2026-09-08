@@ -4,13 +4,13 @@ import { DIFFICULTIES, DIFFICULTY_DESC, DIFFICULTY_LABEL } from '../engine/ai';
 import type { Difficulty } from '../engine/ai';
 import { useAppStore } from '../store/appStore';
 import { useGameStore } from '../store/gameStore';
-import type { Player } from '../core/gameState';
+import { SIDE_LABEL } from '../core/view';
+import { SeatPicker } from './SeatPicker';
 
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const difficulty = useGameStore((s) => s.difficulty);
   const setDifficulty = useGameStore((s) => s.setDifficulty);
   const humanSeat = useGameStore((s) => s.humanSeat);
-  const setHumanSeat = useGameStore((s) => s.setHumanSeat);
   const newGame = useGameStore((s) => s.newGame);
   const inProgress = useGameStore((s) => s.state.ply > 0 && s.state.phase !== 'over');
   const setScreen = useAppStore((s) => s.setScreen);
@@ -64,23 +64,19 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
 
         <section className="set-section">
           <h4>내 색 / 선공</h4>
-          <div className="seg">
-            {([1, 2] as Player[]).map((p) => (
-              <button
-                key={p}
-                className={`seg-btn${humanSeat === p ? ' on' : ''}`}
-                onClick={() => setHumanSeat(p)}
-                aria-pressed={humanSeat === p}
-              >
-                <span className={`side-dot side-${p}`} aria-hidden="true" />
-                {p === 1 ? '흑 (선공)' : '백 (후공)'}
-              </button>
-            ))}
-          </div>
+          <SeatPicker />
+          {inProgress ? (
+            <p className="set-note">
+              {'이번 판은 '}
+              <b>{SIDE_LABEL[humanSeat]}</b>
+              {'으로 두는 중 — 바꾼 색은 다음 판부터 적용됩니다.'}
+            </p>
+          ) : (
+            <p className="set-note">흑이 언제나 선공입니다. 랜덤은 새 판을 시작할 때마다 다시 뽑아요.</p>
+          )}
         </section>
 
         <div className="settings-foot">
-          {inProgress && <span className="set-note">바꾼 설정은 새 게임부터 적용돼요.</span>}
           <button className="btn-primary" onClick={startFresh}>
             이 설정으로 새 게임
           </button>
